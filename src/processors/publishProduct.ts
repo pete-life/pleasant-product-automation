@@ -9,6 +9,7 @@ import { readFileAsBase64, moveToArchive } from '../google/drive';
 import { updateRowWithProductId, writeLogs, writeError } from '../google/sheets';
 import { nowIso } from '../utils/dates';
 import { logger } from '../logger';
+import { config } from '../env';
 
 interface ProductCreateResponse {
   productCreate: {
@@ -44,13 +45,8 @@ export interface PublishResult {
   error?: string;
 }
 
-function needsContentRegeneration(row: SheetRow): boolean {
-  if (row[COLUMN_NAMES.REGENERATE]) return true;
-  const required = [COLUMN_NAMES.TITLE, COLUMN_NAMES.DESCRIPTION, COLUMN_NAMES.TAGS, COLUMN_NAMES.META_DESCRIPTION];
-  return required.some((column) => {
-    const value = row[column as keyof SheetRow];
-    return typeof value !== 'string' || value.trim().length === 0;
-  });
+function needsContentRegeneration(): boolean {
+  return true;
 }
 
 function ensureNoUserErrors(operation: string, userErrors?: Array<{ message: string; field?: string[] | null }>) {
@@ -114,7 +110,7 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
   let aiContent: AIContent | undefined;
 
   try {
-    if (needsContentRegeneration(row)) {
+    if (needsContentRegeneration()) {
       logger.info({ productKey }, 'Generating AI content for row');
       aiContent = await generateContentForRow(row);
     }
@@ -151,12 +147,27 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
         message: `Creating ${build.variants.length} variants`
       });
 
-      const variantsInput = build.variants.map((variant) => ({
-        title: variant.title,
-        price: variant.price ?? build.price,
-        sku: variant.sku,
-        options: variant.optionValues.map((option) => option.value)
-      }));
+      const variantsInput = build.variants.map((variant) => {
+        const payload: Record<string, unknown> = {
+          title: variant.title,
+          price: variant.price ?? build.price,
+          sku: variant.sku,
+          options: variant.optionValues.map((option) => option.value)
+        };
+
+        if (typeof variant.inventoryQuantity === 'number') {
+          payload.inventoryManagement = 'SHOPIFY';
+          payload.inventoryPolicy = 'DENY';
+          payload.inventoryQuantities = [
+            {
+              locationId: config.shopify.locationId,
+              availableQuantity: variant.inventoryQuantity
+            }
+          ];
+        }
+
+        return payload;
+      });
 
       const variantResult = await shopifyRequest<VariantsBulkCreateResponse>({
         query: VARIANTS_BULK_CREATE,

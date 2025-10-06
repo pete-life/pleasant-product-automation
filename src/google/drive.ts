@@ -127,6 +127,51 @@ export async function listProductImages(productKey: string): Promise<ImageAsset[
   return assignDeterministicPositions(files);
 }
 
+export async function listAllProductImageGroups(): Promise<Map<string, RawImageFile[]>> {
+  const drive = await getDriveClient();
+  const folderId = config.google.driveFolderId;
+  const groups = new Map<string, RawImageFile[]>();
+
+  let pageToken: string | undefined;
+
+  do {
+    const response = await withBackoff(() =>
+      drive.files.list({
+        q: `('${folderId}' in parents) and trashed = false`,
+        pageToken,
+        fields: 'nextPageToken, files(id, name, mimeType, size, modifiedTime)',
+        spaces: 'drive',
+        pageSize: 1000,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      })
+    );
+
+    const files = response.data.files ?? [];
+    files.forEach((file) => {
+      if (!file.id || !file.name) return;
+      const parsed = parseFilename(file.name);
+      if (!parsed) return;
+      const key = parsed.productKey.trim();
+      if (!key) return;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push({
+        driveFileId: file.id,
+        filename: file.name,
+        mimeType: file.mimeType ?? undefined,
+        sizeBytes: file.size ? Number(file.size) : undefined,
+        modifiedTime: file.modifiedTime ?? undefined
+      });
+    });
+
+    pageToken = response.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return groups;
+}
+
 export async function readFileAsBase64(fileId: string): Promise<{
   base64: string;
   mimeType: string;

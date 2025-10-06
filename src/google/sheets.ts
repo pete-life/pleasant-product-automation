@@ -39,6 +39,10 @@ function toHeaderMap(headerRow: string[]): HeaderMap {
   }, {});
 }
 
+function buildRowArray(headerRow: string[], values: Record<string, string | undefined>): string[] {
+  return headerRow.map((header) => values[header] ?? '');
+}
+
 function columnIndexToLetter(index: number): string {
   const adjusted = index + 1;
   let letters = '';
@@ -51,7 +55,13 @@ function columnIndexToLetter(index: number): string {
   return letters;
 }
 
-async function fetchProductsSheet(): Promise<{ headerMap: HeaderMap; rows: SheetRow[] }> {
+export interface ProductsSheetSnapshot {
+  headerRow: string[];
+  headerMap: HeaderMap;
+  rows: SheetRow[];
+}
+
+export async function fetchProductsSheet(): Promise<ProductsSheetSnapshot> {
   const sheets = await getSheetsClient();
   const response = await withBackoff(() =>
     sheets.spreadsheets.values.get({
@@ -63,7 +73,7 @@ async function fetchProductsSheet(): Promise<{ headerMap: HeaderMap; rows: Sheet
 
   const values = response.data.values ?? [];
   if (values.length === 0) {
-    return { headerMap: {}, rows: [] };
+    return { headerRow: [], headerMap: {}, rows: [] };
   }
 
   const headerRow = values[0] as string[];
@@ -75,13 +85,11 @@ async function fetchProductsSheet(): Promise<{ headerMap: HeaderMap; rows: Sheet
     const rowNumber = idx + 2;
     const raw: Record<string, unknown> = {
       rowNumber,
-      headerMap,
-      [COLUMN_NAMES.REGENERATE]: sanitizeBooleanCell(getCell(cells, headerMap, COLUMN_NAMES.REGENERATE))
+      headerMap
     };
 
     headerRow.forEach((header, colIdx) => {
       if (!header) return;
-      if (header === COLUMN_NAMES.REGENERATE) return; // already handled
       raw[header] = sanitizeCell(cells[colIdx]);
     });
 
@@ -94,13 +102,7 @@ async function fetchProductsSheet(): Promise<{ headerMap: HeaderMap; rows: Sheet
     rows.push(parsed.data);
   });
 
-  return { headerMap, rows };
-}
-
-function sanitizeBooleanCell(value: string | undefined): boolean {
-  if (!value) return false;
-  const normalized = value.trim().toLowerCase();
-  return ['true', '1', 'yes', 'y'].includes(normalized);
+  return { headerRow, headerMap, rows };
 }
 
 function getCell(
@@ -137,8 +139,7 @@ export async function updateRowWithProductId(
   const updates: Record<string, string | undefined> = {
     [COLUMN_NAMES.SHOPIFY_PRODUCT_ID]: productId,
     [COLUMN_NAMES.STATUS]: STATUS.CREATED,
-    [COLUMN_NAMES.UPDATED_AT]: nowIso(),
-    [COLUMN_NAMES.REGENERATE]: 'FALSE'
+    [COLUMN_NAMES.UPDATED_AT]: nowIso()
   };
 
   if (extraUpdates) {
@@ -183,6 +184,55 @@ export async function updateRowValues(
       }
     })
   );
+}
+
+export async function ensureDraftRow(
+  productKey: string,
+  options: { rowId?: string } = {}
+): Promise<SheetRow> {
+  const snapshot = await fetchProductsSheet();
+  const existing = snapshot.rows.find((row) =>
+    (row[COLUMN_NAMES.PRODUCT_KEY] ?? '').toString().toLowerCase() === productKey.toLowerCase()
+  );
+  if (existing) {
+    return existing;
+  }
+
+  if (!snapshot.headerRow.length) {
+    throw new Error('Products sheet is missing headers; cannot create draft row');
+  }
+
+  const rowId = options.rowId ?? productKey;
+  const createdAt = nowIso();
+  const baseValues: Record<string, string | undefined> = {
+    [COLUMN_NAMES.PRODUCT_KEY]: productKey,
+    [COLUMN_NAMES.STATUS]: STATUS.PENDING,
+    [COLUMN_NAMES.ROW_ID]: rowId,
+    [COLUMN_NAMES.CREATED_AT]: createdAt,
+    [COLUMN_NAMES.UPDATED_AT]: createdAt
+  };
+
+  const valuesArray = buildRowArray(snapshot.headerRow, baseValues);
+
+  const sheets = await getSheetsClient();
+  await withBackoff(() =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId: config.google.sheetId,
+      range: PRODUCTS_RANGE,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [valuesArray] }
+    })
+  );
+
+  const refreshed = await fetchProductsSheet();
+  const created = refreshed.rows.find((row) =>
+    (row[COLUMN_NAMES.PRODUCT_KEY] ?? '').toString().toLowerCase() === productKey.toLowerCase()
+  );
+  if (!created) {
+    throw new Error(`Failed to locate draft row for productKey ${productKey}`);
+  }
+  return created;
 }
 
 export async function writeLogs(entries: LogEntry[]): Promise<void> {

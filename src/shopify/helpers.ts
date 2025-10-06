@@ -1,4 +1,4 @@
-import { SIZE_OPTIONS, COLUMN_NAMES, METAFIELD_KEYS } from '../config/constants';
+import { SIZE_OPTIONS, COLUMN_NAMES, METAFIELD_COLUMN_MAP } from '../config/constants';
 import type { SheetRow, AIContent, VariantSpec } from '../config/schemas';
 
 function getString(row: SheetRow, key: string): string | undefined {
@@ -41,7 +41,8 @@ export function parseSizes(raw: string | undefined): string[] {
 export function buildVariants(
   sizes: string[],
   baseSku: string,
-  price?: string
+  price: string | undefined,
+  inventoryBySize: Record<string, number | undefined>
 ): VariantSpec[] {
   const normalizedSku = baseSku?.trim() ?? 'SKU';
   return sizes.map((size) => ({
@@ -53,11 +54,12 @@ export function buildVariants(
         value: size
       }
     ],
-    price
+    price,
+    inventoryQuantity: inventoryBySize[size]
   }));
 }
 
-export function mergeTags(sheetTags?: string, aiTags?: string[]): string[] {
+export function mergeTags(sheetTags?: string, aiTags?: string[], extraTags: string[] = []): string[] {
   const explicitTags = (sheetTags ?? '')
     .split(',')
     .map((tag) => tag.trim())
@@ -67,21 +69,25 @@ export function mergeTags(sheetTags?: string, aiTags?: string[]): string[] {
   const set = new Set<string>();
   explicitTags.forEach((tag) => set.add(tag));
   generatedTags.forEach((tag) => set.add(tag));
+  extraTags
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .forEach((tag) => set.add(tag));
   return Array.from(set);
 }
 
 export function metafieldsFromRow(row: SheetRow, aiContent?: AIContent) {
   const sources: Record<string, string> = {};
-  METAFIELD_KEYS.forEach((key) => {
-    const sheetValue = getString(row, key);
+  Object.entries(METAFIELD_COLUMN_MAP).forEach(([column, metafieldKey]) => {
+    const sheetValue = getString(row, column);
     if (sheetValue) {
-      sources[key] = sheetValue;
+      sources[metafieldKey] = sheetValue;
     }
   });
 
   if (aiContent?.metafields) {
     Object.entries(aiContent.metafields).forEach(([key, value]) => {
-      if (!sources[key] && typeof value === 'string' && value.trim().length > 0) {
+      if (typeof value === 'string' && value.trim().length > 0) {
         sources[key] = value;
       }
     });
@@ -100,9 +106,9 @@ export function resolvedTitle(row: SheetRow, aiContent?: AIContent): string | un
 }
 
 export function resolvedDescription(row: SheetRow, aiContent?: AIContent): string | undefined {
-  return getString(row, COLUMN_NAMES.DESCRIPTION) ?? aiContent?.descriptionHtml;
+  return getString(row, COLUMN_NAMES.DESCRIPTION) ?? aiContent?.description;
 }
 
 export function resolvedMetaDescription(row: SheetRow, aiContent?: AIContent): string | undefined {
-  return getString(row, COLUMN_NAMES.META_DESCRIPTION) ?? aiContent?.metaDescription;
+  return getString(row, COLUMN_NAMES.META_DESCRIPTION) ?? aiContent?.meta_description;
 }

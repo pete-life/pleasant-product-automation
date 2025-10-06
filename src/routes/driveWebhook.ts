@@ -15,6 +15,12 @@ export default async function driveWebhookRoutes(app: FastifyInstance) {
     const logPayload = buildDriveNotificationLog(request.headers as Record<string, string | string[] | undefined>);
     app.log.info(logPayload, 'Drive webhook received');
 
+    try {
+      await app.inject({ method: 'POST', url: '/tasks/stage-drafts' });
+    } catch (error) {
+      app.log.error({ error }, 'Failed to trigger stage-drafts from webhook');
+    }
+
     void app
       .inject({ method: 'POST', url: '/tasks/process-approved' })
       .catch((error) => app.log.error({ error }, 'Failed to trigger process-approved from webhook'));

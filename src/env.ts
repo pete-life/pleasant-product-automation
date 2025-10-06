@@ -10,8 +10,8 @@ const envSchema = z
     APP_BASE_URL: z.string().url({ message: 'APP_BASE_URL must be a valid URL' }),
 
     GOOGLE_PROJECT_ID: z.string().min(1),
-    GOOGLE_CLIENT_EMAIL: z.string().email(),
-    GOOGLE_PRIVATE_KEY: z.string().min(1),
+    GOOGLE_CLIENT_EMAIL: z.string().email().optional(),
+    GOOGLE_PRIVATE_KEY: z.string().min(1).optional(),
     GOOGLE_DRIVE_FOLDER_ID: z.string().min(1),
     GOOGLE_DRIVE_ARCHIVE_FOLDER_ID: z.string().min(1),
     GOOGLE_SHEET_ID: z.string().min(1),
@@ -23,9 +23,30 @@ const envSchema = z
 
     OPENAI_API_KEY: z.string().min(1)
   })
+  .superRefine((data, ctx) => {
+    const hasEmail = Boolean(data.GOOGLE_CLIENT_EMAIL);
+    const hasKey = Boolean(data.GOOGLE_PRIVATE_KEY);
+    if (hasEmail !== hasKey) {
+      const message = 'GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY must both be set or both omitted';
+      if (!hasEmail) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['GOOGLE_CLIENT_EMAIL'],
+          message
+        });
+      }
+      if (!hasKey) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['GOOGLE_PRIVATE_KEY'],
+          message
+        });
+      }
+    }
+  })
   .transform((data) => ({
     ...data,
-    GOOGLE_PRIVATE_KEY: data.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    GOOGLE_PRIVATE_KEY: data.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
   }));
 
 const parsed = envSchema.safeParse(process.env);

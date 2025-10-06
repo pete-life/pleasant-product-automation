@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getApprovedRowsNeedingCreate, getRowByProductKey } from '../google/sheets';
 import { publishProduct } from '../processors/publishProduct';
+import { stageDrafts } from '../processors/stageDrafts';
 import { COLUMN_NAMES, APPROVED_VALUES } from '../config/constants';
 
 interface ReprocessQuery {
@@ -8,7 +9,13 @@ interface ReprocessQuery {
 }
 
 export default async function tasksRoutes(app: FastifyInstance) {
+  app.post('/tasks/stage-drafts', async () => {
+    const result = await stageDrafts();
+    return result;
+  });
+
   app.post('/tasks/process-approved', async () => {
+    const draftSummary = await stageDrafts();
     const rows = await getApprovedRowsNeedingCreate();
     let processed = 0;
     let created = 0;
@@ -25,7 +32,13 @@ export default async function tasksRoutes(app: FastifyInstance) {
       }
     }
 
-    return { processed, created, errors: failures.length, failedKeys: failures };
+    return {
+      stagedDrafts: draftSummary,
+      processed,
+      created,
+      errors: failures.length,
+      failedKeys: failures
+    };
   });
 
   app.post('/tasks/reprocess', async (request, reply) => {
