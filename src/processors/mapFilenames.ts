@@ -16,21 +16,27 @@ export interface ParsedFilename {
 
 export function parseFilename(filename: string): ParsedFilename | null {
   const base = filename.trim();
-  const underscoreIndex = base.indexOf('_');
-  if (underscoreIndex <= 0) return null;
+  if (!base.length) return null;
 
-  const productKey = base.slice(0, underscoreIndex).trim();
+  const dotIndex = base.lastIndexOf('.');
+  const withoutExtension = dotIndex > 0 ? base.slice(0, dotIndex) : base;
+
+  const lastUnderscore = withoutExtension.lastIndexOf('_');
+  if (lastUnderscore <= 0) return null;
+
+  const productKey = withoutExtension.slice(0, lastUnderscore).trim();
   if (!productKey) return null;
 
-  const remainder = base.slice(underscoreIndex + 1);
-  const dotIndex = remainder.lastIndexOf('.');
-  const roleSegment = (dotIndex > 0 ? remainder.slice(0, dotIndex) : remainder).trim();
+  const roleSegment = withoutExtension.slice(lastUnderscore + 1).trim();
   if (!roleSegment) return null;
 
   const normalizedRole = roleSegment.toLowerCase();
   return {
     productKey,
-    role: normalizedRole === 'model2' || normalizedRole === 'model' ? normalizedRole : normalizedRole.replace(/[^a-z0-9]/g, '') || 'misc'
+    role:
+      normalizedRole === 'model2' || normalizedRole === 'model'
+        ? normalizedRole
+        : normalizedRole.replace(/[^a-z0-9]/g, '') || 'misc'
   };
 }
 
