@@ -118,6 +118,15 @@ export const METAFIELD_COLUMN_MAP: Record<string, string> = {
   [COLUMN_NAMES.GPC_BRICK_NAME]: 'gpc_brick_name'
 };
 
+export const CATEGORY_METAFIELD_KEYS = [
+  'fabric',
+  'color',
+  'target_gender',
+  'age_group',
+  'sleeve_length',
+  'clothing_feature'
+] as const;
+
 export const METAFIELD_KEY_WHITELIST = Object.values(METAFIELD_COLUMN_MAP);
 
 export const IMAGE_FILENAME_ROLE_REGEX = /_(main|close|model2?|[a-z0-9-]+)\./i;

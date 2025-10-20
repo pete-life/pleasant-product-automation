@@ -1,5 +1,12 @@
-import { SIZE_OPTIONS, COLUMN_NAMES, METAFIELD_COLUMN_MAP } from '../config/constants';
+import { SIZE_OPTIONS, COLUMN_NAMES, METAFIELD_COLUMN_MAP, CATEGORY_METAFIELD_KEYS } from '../config/constants';
 import type { SheetRow, AIContent, VariantSpec } from '../config/schemas';
+
+export interface ShopifyMetafieldInput {
+  namespace: string;
+  key: string;
+  type: string;
+  value: string;
+}
 
 function getString(row: SheetRow, key: string): string | undefined {
   const value = (row as Record<string, unknown>)[key];
@@ -76,7 +83,7 @@ export function mergeTags(sheetTags?: string, aiTags?: string[], extraTags: stri
   return Array.from(set);
 }
 
-export function metafieldsFromRow(row: SheetRow, aiContent?: AIContent) {
+export function metafieldsFromRow(row: SheetRow, aiContent?: AIContent): ShopifyMetafieldInput[] {
   const sources: Record<string, string> = {};
   Object.entries(METAFIELD_COLUMN_MAP).forEach(([column, metafieldKey]) => {
     const sheetValue = getString(row, column);
@@ -93,12 +100,29 @@ export function metafieldsFromRow(row: SheetRow, aiContent?: AIContent) {
     });
   }
 
-  return Object.entries(sources).map(([key, value]) => ({
-    namespace: 'custom',
-    key,
-    type: 'single_line_text_field',
-    value
-  }));
+  const categoryMetafieldKeys = new Set<string>(CATEGORY_METAFIELD_KEYS);
+  const defaultType = 'single_line_text_field';
+
+  return Object.entries(sources)
+    .map(([key, value]) => {
+      const requiresReference = key === 'pattern';
+      const isMetaobjectReference = value.startsWith('gid://');
+
+      if (requiresReference && !isMetaobjectReference) {
+        return undefined;
+      }
+
+      const namespace = categoryMetafieldKeys.has(key) ? 'category' : 'custom';
+      const type = requiresReference ? 'metaobject_reference' : defaultType;
+
+      return {
+        namespace,
+        key,
+        type: isMetaobjectReference ? 'metaobject_reference' : type,
+        value
+      };
+    })
+    .filter((entry): entry is ShopifyMetafieldInput => Boolean(entry));
 }
 
 export function resolvedTitle(row: SheetRow, aiContent?: AIContent): string | undefined {
