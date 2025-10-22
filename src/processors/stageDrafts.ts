@@ -25,6 +25,9 @@ import {
   gpcProfileToColumnUpdates,
   gpcProfileToMetafields
 } from '../utils/gpc';
+import { resolveMetaobjectId } from '../shopify/metaobjects';
+import { determinePrice, determineGpc } from '../utils/merchandising';
+import { mapPatternToHandle } from '../utils/patterns';
 
 export interface StageDraftSummary {
   processed: number;
@@ -100,6 +103,7 @@ function buildMetafieldUpdates(metafields: Record<string, string | undefined> | 
   return updates;
 }
 
+
 async function stageSingleProduct(
   productKey: string,
   files: RawImageFile[],
@@ -111,7 +115,14 @@ async function stageSingleProduct(
 
   const imageAssets = assignDeterministicPositions(files);
   const baseRow = existingRow ?? (await ensureDraftRow(productKey));
-  const imageUpdates = buildImageUpdates(imageAssets);
+  const rawImageUpdates = buildImageUpdates(imageAssets);
+  const imageUpdates = Object.fromEntries(
+    Object.entries(rawImageUpdates).filter(([column, value]) => {
+      const current = stringValue((baseRow as Record<string, unknown>)[column]);
+      const next = typeof value === 'string' ? value.trim() : undefined;
+      return current !== next;
+    })
+  ) as Record<string, string | undefined>;
   const updates: Record<string, string | undefined> = { ...imageUpdates };
 
   if (!stringValue(baseRow[COLUMN_NAMES.STATUS])) {
@@ -126,8 +137,6 @@ async function stageSingleProduct(
     updates[COLUMN_NAMES.CREATED_AT] = nowIso();
   }
 
-  updates[COLUMN_NAMES.UPDATED_AT] = nowIso();
-
   const derivedSizes = buildInventorySizes(baseRow);
   if (stringValue(baseRow[COLUMN_NAMES.SIZES]) !== derivedSizes) {
     updates[COLUMN_NAMES.SIZES] = derivedSizes;
@@ -136,6 +145,7 @@ async function stageSingleProduct(
   const hasImageUpdates = Object.keys(imageUpdates).length > 0;
 
   if (Object.keys(updates).length > 0) {
+    updates[COLUMN_NAMES.UPDATED_AT] = nowIso();
     await updateRowValues(baseRow, updates);
   }
 
@@ -184,6 +194,21 @@ async function stageSingleProduct(
     [COLUMN_NAMES.UPDATED_AT]: nowIso()
   };
 
+  const price = determinePrice(aiContent.style);
+  copyUpdates[COLUMN_NAMES.PRICE] = price;
+
+  const gpc = determineGpc(aiContent.style, aiContent.category);
+  copyUpdates[COLUMN_NAMES.GPC_CODE] = gpc.code;
+  copyUpdates[COLUMN_NAMES.GPC_DESCRIPTION] = gpc.description;
+  copyUpdates[COLUMN_NAMES.GPC_SEGMENT] = gpc.segment;
+  copyUpdates[COLUMN_NAMES.GPC_SEGMENT_NAME] = gpc.segmentName;
+  copyUpdates[COLUMN_NAMES.GPC_FAMILY] = gpc.family;
+  copyUpdates[COLUMN_NAMES.GPC_FAMILY_NAME] = gpc.familyName;
+  copyUpdates[COLUMN_NAMES.GPC_CLASS] = gpc.class;
+  copyUpdates[COLUMN_NAMES.GPC_CLASS_NAME] = gpc.className;
+  copyUpdates[COLUMN_NAMES.GPC_BRICK] = gpc.brick;
+  copyUpdates[COLUMN_NAMES.GPC_BRICK_NAME] = gpc.brickName;
+
   const metafieldsPayload: Record<string, string | undefined> = {
     fabric: aiContent.metafields?.fabric ?? 'Upcycled',
     color: aiContent.metafields?.color ?? aiContent.color,
@@ -193,6 +218,18 @@ async function stageSingleProduct(
     sleeve_length: aiContent.metafields?.sleeve_length,
     clothing_feature: aiContent.metafields?.clothing_feature
   };
+
+  const patternHandle =
+    mapPatternToHandle(aiContent.metafields?.pattern) ??
+    mapPatternToHandle(aiContent.pattern) ??
+    mapPatternToHandle(stringValue(refreshedRow[COLUMN_NAMES.METAFIELD_PATTERN]));
+
+  if (patternHandle) {
+    const patternId = await resolveMetaobjectId('pattern', patternHandle);
+    if (patternId) {
+      metafieldsPayload.pattern = patternId;
+    }
+  }
 
   const gpcProfile = aiContent.style
     ? deriveGpcProfile({
