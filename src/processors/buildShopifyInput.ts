@@ -191,13 +191,11 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
     })
   };
   if (taxonomyNodeId) {
-    productInput.productCategory = {
-      productTaxonomyNodeId: `gid://shopify/ProductTaxonomyNode/${taxonomyNodeId}`
-    };
+    productInput.category = `gid://shopify/ProductTaxonomyNode/${taxonomyNodeId}`;
   } else {
     logger.warn(
       { productKey: getString(row[COLUMN_NAMES.PRODUCT_KEY]), gpc },
-      'buildShopifyInput: missing taxonomy node id; skipping productCategory payload'
+      'buildShopifyInput: missing taxonomy node id; skipping category assignment'
     );
   }
 
