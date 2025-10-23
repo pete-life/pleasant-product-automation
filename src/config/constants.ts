@@ -118,14 +118,18 @@ export const METAFIELD_COLUMN_MAP: Record<string, string> = {
   [COLUMN_NAMES.GPC_BRICK_NAME]: 'gpc_brick_name'
 };
 
-export const CATEGORY_METAFIELD_KEYS = [
-  'fabric',
-  'color',
-  'target_gender',
-  'age_group',
-  'sleeve_length',
-  'clothing_feature'
-] as const;
+export const CATEGORY_STANDARD_DEFINITIONS = {
+  age_group: { namespace: 'shopify', key: 'age-group', metaobjectType: 'shopify--age-group' },
+  target_gender: { namespace: 'shopify', key: 'target-gender', metaobjectType: 'shopify--target-gender' },
+  fabric: { namespace: 'shopify', key: 'material', metaobjectType: 'shopify--material' },
+  color: { namespace: 'shopify', key: 'color-pattern', metaobjectType: 'shopify--color-pattern' },
+  sleeve_length: { namespace: 'shopify', key: 'sleeve-length-type', metaobjectType: 'shopify--sleeve-length-type' },
+  clothing_feature: { namespace: 'shopify', key: 'clothing-features', metaobjectType: 'shopify--clothing-features' }
+} as const;
+
+export type CategoryMetafieldKey = keyof typeof CATEGORY_STANDARD_DEFINITIONS;
+
+export const CATEGORY_METAFIELD_KEYS = Object.keys(CATEGORY_STANDARD_DEFINITIONS) as CategoryMetafieldKey[];
 
 export const METAFIELD_KEY_WHITELIST = Object.values(METAFIELD_COLUMN_MAP);
 

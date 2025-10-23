@@ -13,6 +13,7 @@ import { config } from '../env';
 import { resolveMetaobjectId } from '../shopify/metaobjects';
 import type { ShopifyMetafieldInput } from '../shopify/helpers';
 import { ensureCategoryMetafieldDefinitions } from '../shopify/metafieldDefinitions';
+import { convertCategoryMetafields } from '../shopify/categoryMetaobjects';
 import { FormData, File, fetch } from 'undici';
 
 interface ProductCreateResponse {
@@ -166,7 +167,7 @@ async function uploadImages(productId: string, assets: ImageAsset[], altText: st
 
 async function setMetafields(productId: string, metafields: ShopifyMetafieldInput[]) {
   if (!metafields.length) return;
-  if (metafields.some((entry) => entry.namespace === 'category')) {
+  if (metafields.some((entry) => entry.namespace === 'shopify')) {
     await ensureCategoryMetafieldDefinitions();
   }
   const payload = metafields.map((metafield) => ({
@@ -235,6 +236,8 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
     ).then((entries) => entries.filter((entry): entry is typeof build.metafields[number] => Boolean(entry)));
 
     build.metafields.splice(0, build.metafields.length, ...metafieldsResolved);
+    const categoryMappedMetafields = await convertCategoryMetafields(build.metafields);
+    build.metafields.splice(0, build.metafields.length, ...categoryMappedMetafields);
     const assets = await collectRowAssets(row);
 
     logEntries.push({
@@ -272,7 +275,9 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
       ensureNoUserErrors('productUpdate', productUpdateResult.productUpdate.userErrors);
       const persistedCategoryId = productUpdateResult.productUpdate.product?.category?.id;
       if (!persistedCategoryId) {
-        logger.warn({ productId, requestedCategoryId, createdCategoryId }, 'productUpdate did not persist category id');
+        throw new Error(
+          `Shopify did not persist category id for product ${productId}; expected ${requestedCategoryId} (initial ${createdCategoryId ?? 'none'})`
+        );
       }
     }
 
