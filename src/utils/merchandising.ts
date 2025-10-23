@@ -20,6 +20,7 @@ export interface GpcMapping {
   familyName: string;
   className: string;
   brickName: string;
+  taxonomyCategoryId: string;
 }
 
 const GPC_MAP: Record<string, GpcMapping> = {
@@ -31,7 +32,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Clothing Accessories',
-    brickName: 'Headwear'
+    brickName: 'Headwear',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-2-17-1'
   },
   't-shirt': {
     segment: '67000000',
@@ -41,7 +43,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts'
+    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-13-8'
   },
   'short sleeve shirt': {
     segment: '67000000',
@@ -51,7 +54,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts'
+    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-13-7'
   },
   'long sleeve shirt': {
     segment: '67000000',
@@ -61,7 +65,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts'
+    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-13-7'
   },
   'bali shirt': {
     segment: '67000000',
@@ -71,7 +76,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts'
+    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-13-7'
   },
   hoodie: {
     segment: '67000000',
@@ -81,7 +87,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Sweaters/Pullovers'
+    brickName: 'Sweaters/Pullovers',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-13-13'
   },
   sweatshirt: {
     segment: '67000000',
@@ -91,7 +98,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Sweaters/Pullovers'
+    brickName: 'Sweaters/Pullovers',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-13-14'
   },
   jacket: {
     segment: '67000000',
@@ -101,7 +109,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Jackets/Blazers/Cardigans/Waistcoats'
+    brickName: 'Jackets/Blazers/Cardigans/Waistcoats',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-10-2'
   },
   'kids shirt': {
     segment: '67000000',
@@ -111,7 +120,8 @@ const GPC_MAP: Record<string, GpcMapping> = {
     segmentName: 'Clothing',
     familyName: 'Clothing',
     className: 'Upper Body Wear/Tops',
-    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts'
+    brickName: 'Shirts/Blouses/Polo Shirts/T-shirts',
+    taxonomyCategoryId: 'gid://shopify/TaxonomyCategory/aa-1-2-9-6'
   }
 };
 

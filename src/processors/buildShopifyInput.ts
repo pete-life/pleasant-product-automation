@@ -15,15 +15,6 @@ import { determinePrice, determineGpc } from '../utils/merchandising';
 import { logger } from '../logger';
 import { mapPatternToHandle } from '../utils/patterns';
 
-const CATEGORY_ATTRIBUTE_KEY_MAP: Record<string, string> = {
-  fabric: 'material',
-  target_gender: 'gender',
-  age_group: 'age_group',
-  sleeve_length: 'sleeve_length',
-  clothing_feature: 'clothing_feature',
-  color: 'color'
-};
-
 export interface BuildShopifyInputResult {
   productInput: Record<string, unknown>;
   variants: VariantSpec[];
@@ -147,7 +138,7 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
   ensureCustomMetafield('gpc_class_name', gpc.className);
   ensureCustomMetafield('gpc_brick', gpc.brick);
   ensureCustomMetafield('gpc_brick_name', gpc.brickName);
-  const taxonomyNodeId = gpc.brick?.trim();
+  const taxonomyCategoryId = gpc.taxonomyCategoryId?.trim();
 
   const googleAgeGroup = aiContent?.metafields?.age_group ?? getString(row[COLUMN_NAMES.METAFIELD_AGE_GROUP]) ?? 'Adults';
   const googleGender = aiContent?.metafields?.target_gender ?? getString(row[COLUMN_NAMES.METAFIELD_TARGET_GENDER]) ?? 'Unisex';
@@ -166,25 +157,6 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
   if (patternHandle) {
     ensureMetafield('custom', 'pattern', patternHandle, 'metaobject_reference');
   }
-
-  const categoryAttributes = new Map<string, string>();
-  const metafieldPayload: ShopifyMetafieldInput[] = [];
-
-  metafields.forEach((entry) => {
-    if (entry.namespace === 'category') {
-      const attributeKey = CATEGORY_ATTRIBUTE_KEY_MAP[entry.key] ?? entry.key;
-      if (attributeKey && entry.value) {
-        categoryAttributes.set(attributeKey, entry.value);
-        return;
-      }
-    }
-    metafieldPayload.push(entry);
-  });
-
-  const categoryAttributeValues = Array.from(categoryAttributes.entries()).map(([key, value]) => ({
-    key,
-    value
-  }));
 
   const variantMetafields = variants.map(() => {
     const entries: ShopifyMetafieldInput[] = [];
@@ -218,18 +190,12 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
       Title: row[COLUMN_NAMES.TITLE]
     })
   };
-  if (taxonomyNodeId) {
-    const categoryPayload: Record<string, unknown> = {
-      productTaxonomyNodeId: `gid://shopify/ProductTaxonomyNode/${taxonomyNodeId}`
-    };
-    if (categoryAttributeValues.length) {
-      categoryPayload.attributeValues = categoryAttributeValues;
-    }
-    productInput.category = categoryPayload;
+  if (taxonomyCategoryId) {
+    productInput.category = taxonomyCategoryId;
   } else {
     logger.warn(
       { productKey: getString(row[COLUMN_NAMES.PRODUCT_KEY]), gpc },
-      'buildShopifyInput: missing taxonomy node id; skipping category assignment'
+      'buildShopifyInput: missing taxonomy category id; skipping category assignment'
     );
   }
 
@@ -247,7 +213,7 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
   return {
     productInput,
     variants,
-    metafields: metafieldPayload,
+    metafields,
     variantMetafields,
     sheetUpdates,
     tags,
