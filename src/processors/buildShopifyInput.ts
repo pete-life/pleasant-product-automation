@@ -1,5 +1,5 @@
 import type { SheetRow, AIContent, VariantSpec } from '../config/schemas';
-import { COLUMN_NAMES, SIZE_OPTIONS, SIZE_STOCK_COLUMNS } from '../config/constants';
+import { COLUMN_NAMES, SIZE_OPTIONS, SIZE_STOCK_COLUMNS, CATEGORY_METAFIELD_KEYS } from '../config/constants';
 import {
   parseSizes,
   buildVariants,
@@ -106,6 +106,13 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
   sheetUpdates[COLUMN_NAMES.GPC_BRICK_NAME] = gpc.brickName;
 
   const metafields = metafieldsFromRow(row, aiContent);
+  const categoryKeySet = new Set<string>(CATEGORY_METAFIELD_KEYS);
+  for (let index = metafields.length - 1; index >= 0; index -= 1) {
+    const entry = metafields[index];
+    if (entry.namespace === 'custom' && categoryKeySet.has(entry.key)) {
+      metafields.splice(index, 1);
+    }
+  }
 
   const ensureMetafield = (
     namespace: string,

@@ -259,7 +259,7 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
     }
 
     const createdCategoryId = productCreateResult.productCreate.product?.category?.id ?? undefined;
-    if (requestedCategoryId && requestedCategoryId !== createdCategoryId) {
+    if (requestedCategoryId) {
       const productUpdateResult = await shopifyRequest<ProductUpdateResponse>({
         query: PRODUCT_UPDATE,
         variables: {
@@ -270,6 +270,10 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
         }
       });
       ensureNoUserErrors('productUpdate', productUpdateResult.productUpdate.userErrors);
+      const persistedCategoryId = productUpdateResult.productUpdate.product?.category?.id;
+      if (!persistedCategoryId) {
+        logger.warn({ productId, requestedCategoryId, createdCategoryId }, 'productUpdate did not persist category id');
+      }
     }
 
     if (build.variants.length) {
