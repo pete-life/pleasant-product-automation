@@ -15,6 +15,15 @@ import { determinePrice, determineGpc } from '../utils/merchandising';
 import { logger } from '../logger';
 import { mapPatternToHandle } from '../utils/patterns';
 
+const CATEGORY_ATTRIBUTE_KEY_MAP: Record<string, string> = {
+  fabric: 'material',
+  target_gender: 'gender',
+  age_group: 'age_group',
+  sleeve_length: 'sleeve_length',
+  clothing_feature: 'clothing_feature',
+  color: 'color'
+};
+
 export interface BuildShopifyInputResult {
   productInput: Record<string, unknown>;
   variants: VariantSpec[];
@@ -158,6 +167,25 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
     ensureMetafield('custom', 'pattern', patternHandle, 'metaobject_reference');
   }
 
+  const categoryAttributes = new Map<string, string>();
+  const metafieldPayload: ShopifyMetafieldInput[] = [];
+
+  metafields.forEach((entry) => {
+    if (entry.namespace === 'category') {
+      const attributeKey = CATEGORY_ATTRIBUTE_KEY_MAP[entry.key] ?? entry.key;
+      if (attributeKey && entry.value) {
+        categoryAttributes.set(attributeKey, entry.value);
+        return;
+      }
+    }
+    metafieldPayload.push(entry);
+  });
+
+  const categoryAttributeValues = Array.from(categoryAttributes.entries()).map(([key, value]) => ({
+    key,
+    value
+  }));
+
   const variantMetafields = variants.map(() => {
     const entries: ShopifyMetafieldInput[] = [];
     const add = (key: string, value: string | undefined) => {
@@ -191,7 +219,13 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
     })
   };
   if (taxonomyNodeId) {
-    productInput.category = `gid://shopify/ProductTaxonomyNode/${taxonomyNodeId}`;
+    const categoryPayload: Record<string, unknown> = {
+      productTaxonomyNodeId: `gid://shopify/ProductTaxonomyNode/${taxonomyNodeId}`
+    };
+    if (categoryAttributeValues.length) {
+      categoryPayload.attributeValues = categoryAttributeValues;
+    }
+    productInput.category = categoryPayload;
   } else {
     logger.warn(
       { productKey: getString(row[COLUMN_NAMES.PRODUCT_KEY]), gpc },
@@ -213,7 +247,7 @@ export function buildShopifyInput(row: SheetRow, aiContent?: AIContent): BuildSh
   return {
     productInput,
     variants,
-    metafields,
+    metafields: metafieldPayload,
     variantMetafields,
     sheetUpdates,
     tags,
