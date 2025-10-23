@@ -1,7 +1,16 @@
 export const PRODUCT_CREATE = /* GraphQL */ `
   mutation productCreate($input: ProductInput!) {
     productCreate(input: $input) {
-      product { id legacyResourceId handle options { id name } variants(first: 1) { nodes { id title } } }
+      product { id legacyResourceId handle category { id } options { id name } variants(first: 1) { nodes { id title } } }
+      userErrors { field message }
+    }
+  }
+`;
+
+export const PRODUCT_UPDATE = /* GraphQL */ `
+  mutation productUpdate($input: ProductInput!) {
+    productUpdate(input: $input) {
+      product { id category { id } }
       userErrors { field message }
     }
   }

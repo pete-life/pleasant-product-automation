@@ -4,7 +4,7 @@ import { generateContentForRow } from '../ai/generateContent';
 import { buildShopifyInput } from './buildShopifyInput';
 import { collectRowAssets } from './collectRowAssets';
 import { shopifyRequest } from '../shopify/client';
-import { PRODUCT_CREATE, VARIANTS_BULK_CREATE, METAFIELDS_SET, STAGED_UPLOADS_CREATE, PRODUCT_CREATE_MEDIA } from '../shopify/mutations';
+import { PRODUCT_CREATE, PRODUCT_UPDATE, VARIANTS_BULK_CREATE, METAFIELDS_SET, STAGED_UPLOADS_CREATE, PRODUCT_CREATE_MEDIA } from '../shopify/mutations';
 import { readFileAsBase64, moveToArchive } from '../google/drive';
 import { updateRowWithProductId, writeLogs, writeError } from '../google/sheets';
 import { nowIso } from '../utils/dates';
@@ -12,6 +12,7 @@ import { logger } from '../logger';
 import { config } from '../env';
 import { resolveMetaobjectId } from '../shopify/metaobjects';
 import type { ShopifyMetafieldInput } from '../shopify/helpers';
+import { ensureCategoryMetafieldDefinitions } from '../shopify/metafieldDefinitions';
 import { FormData, File, fetch } from 'undici';
 
 interface ProductCreateResponse {
@@ -27,7 +28,15 @@ interface ProductCreateResponse {
           title: string;
         }>;
       };
+      category?: { id: string | null } | null;
     };
+    userErrors?: Array<{ field?: string[] | null; message: string }>;
+  };
+}
+
+interface ProductUpdateResponse {
+  productUpdate: {
+    product?: { id: string; category?: { id: string | null } | null };
     userErrors?: Array<{ field?: string[] | null; message: string }>;
   };
 }
@@ -144,11 +153,11 @@ async function uploadImages(productId: string, assets: ImageAsset[], altText: st
     alt: altText ?? files[index].filename
   }));
 
-    const mediaResult = await shopifyRequest<ProductCreateMediaResponse>({
-      query: PRODUCT_CREATE_MEDIA,
-      variables: {
-        productId,
-        media: mediaInput
+  const mediaResult = await shopifyRequest<ProductCreateMediaResponse>({
+    query: PRODUCT_CREATE_MEDIA,
+    variables: {
+      productId,
+      media: mediaInput
     }
   });
 
@@ -157,6 +166,9 @@ async function uploadImages(productId: string, assets: ImageAsset[], altText: st
 
 async function setMetafields(productId: string, metafields: ShopifyMetafieldInput[]) {
   if (!metafields.length) return;
+  if (metafields.some((entry) => entry.namespace === 'category')) {
+    await ensureCategoryMetafieldDefinitions();
+  }
   const payload = metafields.map((metafield) => ({
     ownerId: productId,
     ...metafield
@@ -206,6 +218,8 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
     }
 
     const build = buildShopifyInput(row, aiContent);
+    const productInputCategory = (build.productInput as { category?: unknown }).category;
+    const requestedCategoryId = typeof productInputCategory === 'string' ? productInputCategory : undefined;
     const metafieldsResolved = await Promise.all(
       build.metafields.map(async (entry) => {
         if (entry.key === 'pattern' && entry.value && !entry.value.startsWith('gid://')) {
@@ -242,6 +256,20 @@ export async function publishProduct(row: SheetRow): Promise<PublishResult> {
     const productId = productCreateResult.productCreate.product?.id;
     if (!productId) {
       throw new Error('Shopify productCreate did not return a product id');
+    }
+
+    const createdCategoryId = productCreateResult.productCreate.product?.category?.id ?? undefined;
+    if (requestedCategoryId && requestedCategoryId !== createdCategoryId) {
+      const productUpdateResult = await shopifyRequest<ProductUpdateResponse>({
+        query: PRODUCT_UPDATE,
+        variables: {
+          input: {
+            id: productId,
+            category: requestedCategoryId
+          }
+        }
+      });
+      ensureNoUserErrors('productUpdate', productUpdateResult.productUpdate.userErrors);
     }
 
     if (build.variants.length) {
