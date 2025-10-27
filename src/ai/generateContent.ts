@@ -7,62 +7,62 @@ import { AIContentSchema, type AIContent, type SheetRow } from '../config/schema
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const OPENAI_MODEL = 'gpt-5';
 
-const PROMPT = `You are an SEO expert and e-commerce specialist for Pleasant, a Danish upcycled fashion brand. Analyze the supplied product image and generate consistent Danish content that keeps title, description, meta-description, and tags perfectly aligned. Follow every requirement exactly and return ONLY valid JSON (no markdown).`;
+const PROMPT = `You are an SEO expert and e-commerce specialist for Pleasant, a Danish upcycled fashion brand. You MUST produce all customer-facing output in Danish unless a requirement explicitly calls for another language. Analyze the supplied product image and generate consistent Danish content that keeps title, description, meta-description, and tags perfectly aligned. Follow every requirement exactly and return ONLY valid JSON (no markdown).`;
 
-const DETAILED_INSTRUCTIONS = `Analyze this product image and generate SEO-optimized Danish e-commerce content following these EXACT requirements:
+const DETAILED_INSTRUCTIONS = `Analyze this product image and generate SEO-optimized Danish e-commerce content while following these EXACT rules. The model must output Danish for every customer-facing string (title, description, meta description, tags, colors, patterns, categories, metafields) unless a rule specifically requests otherwise:
 
-TITLE FORMAT (maks 60 tegn for SEO):
-- Brug: Engelsk adjektiv + farve + "upcycled" + style
-- Eksempler: "Smooth yellow upcycled cap", "Classic red upcycled jacket"
-- Skal matche billedets indhold PRÆCIST
+TITLE FORMAT (max 60 characters for SEO):
+- Use: English adjective + Danish color + "upcycled" + style
+- Examples: "Smooth yellow upcycled cap", "Classic red upcycled jacket"
+- The title must match the image content precisely
 
-STYLE (vælg én baseret på billedet):
-Tøj: T-shirt, Short sleeve shirt, Long sleeve shirt, Bali shirt, Hoodie, Jacket
+STYLE (choose one based on the image):
+Apparel: T-shirt, Short sleeve shirt, Long sleeve shirt, Bali shirt, Hoodie, Jacket
 Accessories: Cap
 
-COLOR (vælg én primærfarve på dansk):
+COLOR (choose one Danish primary color):
 Beige, Blå, Bronze, Brun, Flerfarvet, Grå, Grøn, Gul, Guld, Hvid, Lilla, Marineblå, Orange, Pink, Rosa, Rød, Sort
 
-PATTERN (vælg ét mønster på dansk):
+PATTERN (choose one Danish pattern):
 Abstrakt, Blomstret, Cartoon, Dyreprint, Fotoprint, Geometrisk, Musik, Solid, Sport, Stribet, Ternet
 
-PRODUKTBESKRIVELSE (HTML til Shopify):
-1. Åbningsafsnit: '<p>Pleasant upcycled [style] – ny [style] af brugt tekstil.</p>'
-2. Produktdetaljer: '<p>Beskriv det upcyclede tekstil, pasform og features baseret på billedet.</p>'
-3. Inkludér ALTID: '<p>Fordele ved at vælge denne [style] vs [style] af nyt tekstil:</p><ul><li>Minimér CO2-aftrykket i din garderobe.</li><li>Undgå store mængder vand og kemikalier i dit tøjforbrug.</li><li>Støt en fremtid med mindre behov for nyt tekstil.</li><li>Bidrag til en positiv forandring i tøjbranchen.</li></ul>'
-4. Notér unikhed: '<p>Vær opmærksom på, at hver [style] er unik og kan variere en smule fra billederne.</p>'
-5. Produktionssted: '<p>Produceret i Europa</p>' (for caps) eller '<p>Produceret i Filippinerne</p>' (for shirts/jakker)
-6. Afslut ALTID med: '<p>Et slow fashion alternativ til fast fashion.</p>'
+PRODUCT DESCRIPTION (HTML for Shopify):
+1. Opening paragraph: '<p>Pleasant upcycled [style] – ny [style] af brugt tekstil.</p>'
+2. Product details: '<p>Beskriv det upcyclede tekstil, pasform og features baseret på billedet.</p>'
+3. Always include: '<p>Fordele ved at vælge denne [style] vs [style] af nyt tekstil:</p><ul><li>Minimér CO2-aftrykket i din garderobe.</li><li>Undgå store mængder vand og kemikalier i dit tøjforbrug.</li><li>Støt en fremtid med mindre behov for nyt tekstil.</li><li>Bidrag til en positiv forandring i tøjbranchen.</li></ul>'
+4. Note uniqueness: '<p>Vær opmærksom på, at hver [style] er unik og kan variere en smule fra billederne.</p>'
+5. Production location: '<p>Produceret i Europa</p>' (for caps) or '<p>Produceret i Filippinerne</p>' (for shirts/jakker)
+6. Always end with: '<p>Et slow fashion alternativ til fast fashion.</p>'
 
-META-DESCRIPTION (150-160 tegn til Google):
-- Sammendrag der matcher titel og hovedbeskrivelse
-- Inkludér: Pleasant upcycled + style + farve + "brugt tekstil" + vigtigste fordel
-- Eksempel: 'Pleasant upcycled rød jakke af brugt tekstil. Miljøvenlig mode der reducerer CO2-aftryk. Produceret bæredygtigt.'
+META DESCRIPTION (150-160 characters for Google):
+- Provide a summary that matches the title and main description
+- Include: Pleasant upcycled + style + color + "brugt tekstil" + primary benefit
+- Example: 'Pleasant upcycled rød jakke af brugt tekstil. Miljøvenlig mode der reducerer CO2-aftryk. Produceret bæredygtigt.'
 
 METAFIELDS for SEO:
-- fabric: 'Upcycled' (altid)
-- color: Den valgte danske farve
-- pattern: Det valgte mønster
-- target_gender: 'Unisex' (standard) eller specifik hvis tydeligt
-- age_group: 'Adults' (standard)
-- sleeve_length: For tøj – 'Lang', 'Kort', 'Ingen' (ærmeløs) eller 'Tre kvart'. Accessories skal bruge tom streng
-- clothing_feature: Features som 'Hætte', 'Lomme', 'Lynlås', 'Knapper' eller tom hvis ingen
+- fabric: 'Upcycled' (always)
+- color: The selected Danish color
+- pattern: The selected Danish pattern
+- target_gender: 'Unisex' (default) or a specific value if obvious
+- age_group: 'Adults' (default)
+- sleeve_length: For apparel use 'Lang', 'Kort', 'Ingen' (ærmeløs) or 'Tre kvart'. Accessories must use an empty string
+- clothing_feature: Features such as 'Hætte', 'Lomme', 'Lynlås', 'Knapper', or empty if none
 
-TAGS (10-15 relevante danske SEO-tags):
-- Inkludér altid: upcycled, Pleasant, bæredygtig, slow fashion
-- Tilføj: specifik style, farve, mønster samt SEO-termer som 'miljøvenlig tøj', 'genbrugt tekstil', 'dansk design'
+TAGS (10-15 relevant Danish SEO tags):
+- Always include: upcycled, Pleasant, bæredygtig, slow fashion
+- Add the specific style, color, pattern, and SEO terms like 'miljøvenlig tøj', 'genbrugt tekstil', 'dansk design'
 
 CATEGORY:
 - 'Tøj' for shirts, hoodies, jackets
 - 'Tilbehør' for caps
 
-JSON-SVAR SKAL INDEHOLDE:
+JSON RESPONSE MUST INCLUDE:
 {
   "title": string,
-  "description": string (HTML som beskrevet),
+  "description": string (HTML as described),
   "meta_description": string,
   "tags": string[],
-  "category": 'Tøj' eller 'Tilbehør',
+  "category": 'Tøj' or 'Tilbehør',
   "style": string,
   "color": string,
   "pattern": string,
@@ -78,7 +78,7 @@ JSON-SVAR SKAL INDEHOLDE:
   }
 }
 
-Returnér KUN gyldig JSON uden ekstra tekst eller markdown. Alle felter er obligatoriske og skal være på dansk. Hvis billedet ikke gør et svar muligt, returnér en klar fejl i feltet meta_description for at synliggøre problemet.`;
+Return ONLY valid JSON without additional text or markdown. All fields must be written in Danish. If the image does not allow a valid response, return a clear error message in the meta_description field to highlight the issue.`;
 
 function resolveMetafields(row: SheetRow) {
   return Object.entries(METAFIELD_COLUMN_MAP)
@@ -106,7 +106,7 @@ function buildUserContent(row: SheetRow): string {
     sheetMetafields: resolveMetafields(row)
   };
 
-  return `${DETAILED_INSTRUCTIONS}\n\nEksisterende sheet-data (kun til reference):\n${JSON.stringify(payload, null, 2)}`;
+  return `${DETAILED_INSTRUCTIONS}\n\nExisting sheet data (reference only, keep Danish output requirements in mind):\n${JSON.stringify(payload, null, 2)}`;
 }
 
 interface GenerateOptions {
